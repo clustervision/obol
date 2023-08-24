@@ -129,26 +129,46 @@ class UserAdd(Command):
 
     def take_action(self, args):
         b = self.app.options.b
-        username = args.username
-        uidNumber = args.uidNumber
-        cn = args.cn
-        sn = args.sn
-        givenName = args.givenName
-        password = args.password
-        context = args.subtree
-        shell = args.shell
-        groups = args.groups
-        grouptree = args.grouptree
+        myargs={}
+        for arg in vars(args):
+            #print(arg, getattr(args, arg))
+            value = getattr(args, arg)
+            if value:
+                value = value.encode('utf-8')
+            myargs[arg] = value
+        username = myargs['username']
+        uidNumber = myargs['uidNumber']
+        cn = myargs['cn']
+        sn = myargs['sn']
+        givenName = myargs['givenName']
+        password = myargs['password']
+        context = myargs['subtree']
+        shell = myargs['shell']
+        groups = myargs['groups']
+        grouptree = myargs['grouptree']
         conn = self.app.conn
+
+#        username = args.username
+#        uidNumber = args.uidNumber
+#        cn = args.cn
+#        sn = args.sn
+#        givenName = args.givenName
+#        password = args.password
+#        context = args.subtree
+#        shell = args.shell
+#        groups = args.groups
+#        grouptree = args.grouptree
+#        conn = self.app.conn
 
         if not uidNumber:
             uidNumber = self.increment_uid(b)
+            uidNumber = uidNumber.encode('utf-8')
 
         # first add the group
         dn = 'cn=%s,%s,%s' % (username, context, b)
         logger.debug(dn)
         add_record = [
-            ('objectclass', ['top', 'posixGroup']),
+            ('objectclass', [b'top', b'posixGroup']),
             ('cn', [username]),
             ('memberuid', [uidNumber]),
             ('gidNumber', [uidNumber])
@@ -156,7 +176,7 @@ class UserAdd(Command):
         conn.add_s(dn, add_record)
 
         # now add the user
-        dn = 'uid=%s,%s,%s' % (username, context, b)
+        dn = 'uid=%s,%s,%s' % (username.decode(), context.decode(), b)
         logger.debug(dn)
 
         # set some default values

@@ -1,13 +1,14 @@
 #!/usr/bin/python
 import sys
-import logging
+#import logging
 
 from cliff.app import App
 from cliff.commandmanager import CommandManager
 
 import ldap
 import os
-from ConfigParser import ConfigParser
+#from ConfigParser import ConfigParser
+from configparser import ConfigParser
 
 from . import user, group
 
@@ -31,18 +32,18 @@ class ObolApp(App):
         manager.add_command('group addusers', group.GroupAddUsers)
         manager.add_command('group delusers', group.GroupDelUsers)
 
+        config = ConfigParser({'user_tree': 'ou=People',
+                               'group_tree': 'ou=Group'})
+        config.read(['/etc/obol.conf',
+                     os.path.expanduser('~/.obol.cfg')])
+        self.config = config
+
         super(ObolApp, self).__init__(
             description='Obol: LDAP command line tool',
             version='2.0',
             command_manager=manager,
             deferred_help=True,
             )
-
-        config = ConfigParser({'user_tree': 'ou=People',
-                               'group_tree': 'ou=Group'})
-        config.read(['/etc/obol/obol.config',
-                     os.path.expanduser('~/.obol.cfg')])
-        self.config = config
 
     def default(self, key, default=''):
         """A utility function to retrieve defaults from a config file"""
@@ -76,11 +77,11 @@ class ObolApp(App):
                             default=self.default('host', 'ldap://localhost'))
         parser.add_argument('-b', metavar='BASE_DN',
                             default=self.default('baseDN', 'dc=local'))
-        loglevels = [key for key in logging._levelNames
-                     if isinstance(key, str)]
+#        loglevels = [key for key in logging._levelNames
+#                     if isinstance(key, str)]
 
-        parser.add_argument('--logLevel', choices=loglevels,
-                            default=self.default('logLevel', 'INFO'))
+#        parser.add_argument('--logLevel', choices=loglevels,
+#                            default=self.default('logLevel', 'INFO'))
         return parser
 
     def prepare_to_run_command(self, cmd):
