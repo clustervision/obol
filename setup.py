@@ -15,7 +15,7 @@ def new_version():
     This Method will create a New version and update the Version file.
     """
     time_now = int(time())
-    version = f'2.0.{time_now}'
+    version = f'1.3.{time_now}'
 
     return version
 
