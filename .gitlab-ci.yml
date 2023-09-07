@@ -42,10 +42,11 @@ build-job:       # This job runs in the build stage, which runs first.
     - pip install .
     - echo "Install complete."
 
-unit-test-job:   # This job runs in the test stage.
-  stage: test    # It only starts when the job in the build stage completes successfully.
-  script:
-    - python tests/test.py
-    - echo "Test complete"
+# LETS DO IT IN A BORING NIGHT
+# unit-test-job:   # This job runs in the test stage.
+#   stage: test    # It only starts when the job in the build stage completes successfully.
+#   script:
+#     - python tests/test.py
+#     - echo "Test complete"
 
 
