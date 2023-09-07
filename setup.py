@@ -1,35 +1,51 @@
-from setuptools import setup
-import os
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-def read(fname):
-    return open(os.path.join(os.path.dirname(__file__), fname)).read()
+"""
+Setup file, will build the pip package for the project.
+"""
+
+from time import time
+from setuptools import setup
+
+PRE = "{Personal-Access-Token-Name}:{Personal-Access-Token}"
+
+def new_version():
+    """
+    This Method will create a New version and update the Version file.
+    """
+    time_now = int(time())
+    version = f'1.3.{time_now}'
+
+    return version
+
 
 setup(
-  name = 'obol',
-  version = '2.0.4',
-  description = 'useradd for ldap',
-  author = 'Hans Then',
-  author_email = 'hans.then@gmail.com',
-  url = 'https://github.com/hansthen/obol',
-  download_url = 'https://github.com/hansthen/obol/tarball/2.0',
-  keywords = ['useradd', 'groupadd', 'ldap'],
-  license = 'GPLv3',
-  long_description=read('README.rst'),
-  packages = ['obol'],
-  classifiers=[
-        "Development Status :: 4 - Beta",
-        "Topic :: Utilities",
-        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
-  ],
-  entry_points={
-          'console_scripts': [
-              'obol = obol.main:main'
-          ]
-  },
-  install_requires = [
-     'python-ldap',
-     'ldif3',
-     'retrying',
-     'cliff'
-  ]
+    name = "trinityx-obol",
+    version = new_version(),
+    description = "Command line utility to manage LDAP users and groups.",
+    long_description = "Command line utility to manage LDAP users and groups.",
+    author = 'ClusterVision Development Team',
+    author_email = "support@clustervision.com",
+    maintainer = 'ClusterVision Development Team',
+    maintainer_email = "support@clustervision.com",
+    url = "https://gitlab.taurusgroup.one/clustervision/trinityx-obol.git",
+    download_url = f"https://{PRE}@gitlab.taurusgroup.one/api/v4/projects/14/packages/pypi/simple",
+    packages = [
+        "obol"
+    ],
+    license = "GPL-3",
+    install_requires = [
+        "python-ldap>=3.3"
+    ],
+    data_files = [
+        ("/etc/obol", ["obol.conf"])
+    ],
+    entry_points={
+        'console_scripts': [
+            'obol = obol.obol:run',
+        ]
+    },
+
 )
+# python setup.py sdist bdist_wheel
