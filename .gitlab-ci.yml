@@ -30,13 +30,10 @@ cache:
     - venv/
 
 stages:          # List of stages for jobs, and their order of execution
-  - setup
   - build
   - test
 
-setup-job:
-  stage: setup
-  script:
+before_script:
     - apk add --no-cache libc-dev gcc openldap-dev python3-dev
 
 build-job:       # This job runs in the build stage, which runs first.
