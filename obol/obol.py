@@ -710,15 +710,15 @@ def run():
 
     args = vars(parser.parse_args())
     output = 'json' if args['json'] else 'table'
-    obol = Obol('/etc/obol/obol.conf', output=output, overrides=args)
+    obol = Obol('/etc/obol.conf', output=output, overrides=args)
 
     # Run command
 
-    method_name = '%s_%s' % (args['target'], args['command'])
-    function = getattr(obol, method_name, None)
-    if function:
+    try:
+        method_name = '%s_%s' % (args['target'], args['command'])
+        function = getattr(obol, method_name, None)
         function(**args)
-    else:
+    except:
         parser.print_help()
         sys.exit(1)
 
