@@ -710,7 +710,7 @@ def run():
 
     args = vars(parser.parse_args())
     output = 'json' if args['json'] else 'table'
-    obol = Obol('/etc/obol/obol.conf', output=output, overrides=args)
+    obol = Obol('/etc/obol.conf', output=output, overrides=args)
 
     # Run command
 
