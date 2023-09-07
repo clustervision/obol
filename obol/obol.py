@@ -714,11 +714,11 @@ def run():
 
     # Run command
 
-    method_name = '%s_%s' % (args['target'], args['command'])
-    function = getattr(obol, method_name, None)
-    if function:
+    try:
+        method_name = '%s_%s' % (args['target'], args['command'])
+        function = getattr(obol, method_name, None)
         function(**args)
-    else:
+    except:
         parser.print_help()
         sys.exit(1)
 
