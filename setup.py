@@ -34,7 +34,7 @@ setup(
     packages = [
         "obol"
     ],
-    license = "MIT",
+    license = "GPL-3",
     install_requires = [
         "python-ldap>=3.3"
     ],
