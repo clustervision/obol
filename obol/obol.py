@@ -351,7 +351,7 @@ class Obol:
             # neither groupname or gid is specified: groupname <- username
             groupname = username
             if self._groupname_exists(groupname, _groups=existing_groups):
-                gid = [ g['gidNumber'] for g in groups if g['cn'] == groupname ][0]
+                gid = [ g['gidNumber'] for g in existing_groups if g['cn'] == groupname ][0]
             else:
                 gid = self._next_gid(existing_groups)
                 create_group = True
