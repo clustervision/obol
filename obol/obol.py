@@ -276,7 +276,7 @@ class Obol:
         for _, attrs in self.conn.search_s(groups_dn, ldap.SCOPE_SUBTREE, '(objectclass=groupOfMembers)'):
             for member in attrs.get('member', []):
                 if member.decode('utf8').startswith('uid=%s,' % username):
-                    user['groups'].append(attrs['cn'][0].decode('utf8'))
+                    user['groups'].append( attrs['cn'][0].decode('utf8'))
 
         return user
 
@@ -291,10 +291,10 @@ class Obol:
             
             members = group.pop('member') if 'member' in group else []
             
-            group['users'] = [m.split(',')[0].split('=')[1] for m in members]
+            group['users'] = [ m.split(',')[0].split('=')[1] for m in members]
             return group
 
-        raise LookupError("Group '%s' does not exist" % groupname)
+        raise LookupError("Group %s does not exist" % groupname)
 
 
     ###### Add
