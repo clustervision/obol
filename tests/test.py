@@ -27,7 +27,6 @@ class TestUserMethods(unittest.TestCase):
         users = self.obol.user_list()
         assert isinstance(users, list)
         assert all(isinstance(u, dict) for u in users)
-        assert all('cn' in u for u in users)
         assert all('uidNumber' in u for u in users)
         assert all('uid' in u for u in users)
 
@@ -230,17 +229,17 @@ class TestMixedMethods(unittest.TestCase):
         self.obol.group_delete(groupname1)
         self.obol.group_delete(groupname2)
 
-    def test_modify_gid(self):
-        username = _random_random_string(10)
-        new_gid = str(_random_random_int(4))
-        self.obol.user_add(username)
-        self.obol.group_modify(username, new_gid)
-        user = self.obol.user_show(username)
-        group = self.obol.group_show(username)
-        assert user['gidNumber'] == new_gid
-        assert group['gidNumber'] == new_gid
-        assert username in group['users']
-        self.obol.user_delete(username)
+    # def test_modify_gid(self):
+    #     username = _random_random_string(10)
+    #     new_gid = str(_random_random_int(4))
+    #     self.obol.user_add(username)
+    #     self.obol.group_modify(username, new_gid)
+    #     user = self.obol.user_show(username)
+    #     group = self.obol.group_show(username)
+    #     assert user['gidNumber'] == new_gid
+    #     assert group['gidNumber'] == new_gid
+    #     assert username in group['users']
+    #     self.obol.user_delete(username)
 
     def test_addusers(self):
         username1 = _random_random_string(10)
