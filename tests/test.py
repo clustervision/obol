@@ -195,7 +195,7 @@ class TestMixedMethods(unittest.TestCase):
         group = self.obol.group_show(groupname)
         assert user['cn'] == username
         assert user['gidNumber'] == group['gidNumber']
-        assert username in group['member']
+        assert username in group['users']
         self.obol.user_delete(username)
         self.obol.group_delete(groupname)
 
@@ -209,7 +209,7 @@ class TestMixedMethods(unittest.TestCase):
         group = self.obol.group_show(groupname)
         assert user['cn'] == username
         assert user['gidNumber'] == group['gidNumber']
-        assert username in group['member']
+        assert username in group['users']
         self.obol.user_delete(username)
         self.obol.group_delete(groupname)
 
@@ -224,8 +224,8 @@ class TestMixedMethods(unittest.TestCase):
         group1 = self.obol.group_show(groupname1)
         group2 = self.obol.group_show(groupname2)
         assert user['cn'] == username
-        assert username in group1['member']
-        assert username in group2['member']
+        assert username in group1['users']
+        assert username in group2['users']
         self.obol.user_delete(username)
         self.obol.group_delete(groupname1)
         self.obol.group_delete(groupname2)
@@ -239,8 +239,71 @@ class TestMixedMethods(unittest.TestCase):
         group = self.obol.group_show(username)
         assert user['gidNumber'] == new_gid
         assert group['gidNumber'] == new_gid
-        assert username in group['member']
+        assert username in group['users']
         self.obol.user_delete(username)
+
+    def test_addusers(self):
+        username1 = _random_random_string(10)
+        username2 = _random_random_string(10)
+        groupname = _random_random_string(10)
+        self.obol.group_add(groupname)
+        self.obol.user_add(username1)
+        self.obol.user_add(username2)
+        self.obol.group_addusers(groupname, [username1, username2])
+        group = self.obol.group_show(groupname)
+        assert username1 in group['users']
+        assert username2 in group['users']
+        self.obol.user_delete(username1)
+        self.obol.user_delete(username2)
+        self.obol.group_delete(groupname)
+    
+    def test_delusers(self):
+        username1 = _random_random_string(10)
+        username2 = _random_random_string(10)
+        groupname = _random_random_string(10)
+        self.obol.group_add(groupname)
+        self.obol.user_add(username1)
+        self.obol.user_add(username2)
+        self.obol.group_addusers(groupname, [username1, username2])
+        self.obol.group_delusers(groupname, [username1, username2])
+        group = self.obol.group_show(groupname)
+        assert username1 not in group['users']
+        assert username2 not in group['users']
+        self.obol.user_delete(username1)
+        self.obol.user_delete(username2)
+        self.obol.group_delete(groupname)
+
+    def test_group_modify_users(self):
+        username1 = _random_random_string(10)
+        username2 = _random_random_string(10)
+        groupname = _random_random_string(10)
+        self.obol.group_add(groupname)
+        self.obol.user_add(username1)
+        self.obol.user_add(username2)
+        self.obol.group_modify(groupname, users=[username1, username2])
+        group = self.obol.group_show(groupname)
+        assert username1 in group['users']
+        assert username2 in group['users']
+        self.obol.user_delete(username1)
+        self.obol.user_delete(username2)
+        self.obol.group_delete(groupname)
+
+    def test_user_modify_groups(self):
+        username = _random_random_string(10)
+        groupname1 = _random_random_string(10)
+        groupname2 = _random_random_string(10)
+        self.obol.group_add(groupname1)
+        self.obol.group_add(groupname2)
+        self.obol.user_add(username)
+        self.obol.user_modify(username, groups=[groupname1, groupname2])
+        user = self.obol.user_show(username)
+        group1 = self.obol.group_show(groupname1)
+        group2 = self.obol.group_show(groupname2)
+        assert username in group1['users']
+        assert username in group2['users']
+        self.obol.user_delete(username)
+        self.obol.group_delete(groupname1)
+        self.obol.group_delete(groupname2)
 
 
 
