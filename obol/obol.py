@@ -21,7 +21,7 @@
 __author__      = 'Diego Sonaglia'
 __copyright__   = ''
 __license__     = 'GPL'
-__version__     = '1.5'
+__version__     = '1.6'
 __maintainer__  = 'Diego Sonaglia'
 __email__       = 'diego.sonaglia@clustervision.com'
 __status__      = 'Development'
