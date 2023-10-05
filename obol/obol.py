@@ -45,20 +45,20 @@ from pprint import pprint
 
 def print_warning(msg, name="Warning"):
     """Print a warning message to stderr"""
-    print("[%s] %s" % (name, msg), file=sys.stderr)
+    print(f"[{name}] {msg}", file=sys.stderr)
 
 
 def print_error(msg, name="Error"):
     """Print an error message to stderr"""
-    print("[%s] %s" % (name, msg), file=sys.stderr)
+    print(f"[{name}] {msg}", file=sys.stderr)
 
 
 def print_table(item: Union[List, Dict]):
     """Print a list of dicts as a table, dict as a transposed table"""
     if isinstance(item, list):
-        if len(item) == 0: 
+        if len(item) == 0:
             print('No results')
-            return 
+            return
         keys = item[0].keys()
         widths = [len(key) for key in keys]
 
@@ -96,6 +96,7 @@ def show_output(func):
 
 
 class Obol:
+    """Obol class"""
     user_fields = [
         'cn',
         'uid',
@@ -121,29 +122,42 @@ class Obol:
         'member'
     ]
 
-    def __init__(self, config_path, overrides={}):
+    def __init__(self, config_path, overrides=None):
         self.config = configparser.ConfigParser()
-        self.config.read(config_path)
-        # override from cli
 
-        for key, value in overrides.items():
+        # try to open and read configuration from config_path
+        with open(config_path, 'r', encoding='utf-8') as config_file:
+            self.config.read_file(config_file)
+
+        # override LDAP params from cli
+        for key, value in (overrides or {}).items():
             if value and (key in self.config['ldap']):
                 self.config.set('ldap', key, value)
-        # bind to LDAP
-        self.conn = ldap.initialize(self.config.get("ldap", "host"))
-        self.conn.simple_bind_s(self.config.get("ldap", "bind_dn"),
-                                self.config.get("ldap", "bind_pass"))
+
+        # try binding to LDAP
+        try:
+            ldap_host = self.config.get("ldap", "host")
+            ldap_bind_dn = self.config.get("ldap", "bind_dn")
+            ldap_bind_pass = self.config.get("ldap", "bind_pass")
+
+            self.conn = ldap.initialize(ldap_host)
+            self.conn.simple_bind_s(ldap_bind_dn, ldap_bind_pass)
+        except Exception as exc:
+            raise ConnectionError("Failed binding to ldap") from exc
 
     @property
     def base_dn(self):
+        """Returns the base DN"""
         return self.config.get("ldap", "base_dn")
 
     @property 
     def users_dn(self):
+        """Returns the users DN"""
         return 'ou=People,%s' % self.base_dn
 
     @property
     def groups_dn(self):
+        """Returns the groups DN"""
         return 'ou=Group,%s' % self.base_dn
 
     @classmethod
@@ -815,9 +829,9 @@ def run():
     group_list_command = group_commands.add_parser('list', help='List groups')
 
     # Run command
-    args = vars(parser.parse_args())
-    obol = Obol('/etc/obol.conf', overrides=args)
     try:
+        args = vars(parser.parse_args())
+        obol = Obol('/etc/obol.conf', overrides=args)
         if args['target'] is None or args['command'] is None:
             if args['target'] == 'user':
                 user_parser.print_help()
@@ -829,11 +843,8 @@ def run():
         method_name = '%s_%s' % (args['target'], args['command'])
         function = getattr(obol, method_name, None)
         function(**args, warn=True)
-    except (ValueError, LookupError) as e:
-        print_error(e, type(e).__name__)
-        exit(1)
-    except Exception as e:
-        print_error(e, (f"OtherError: {type(e).__name__}"))
+    except (Exception) as e:
+        print_error(e, name=type(e).__name__,)
         exit(1)
 
 
