@@ -15,7 +15,7 @@ def new_version():
     This Method will create a New version and update the Version file.
     """
     time_now = int(time())
-    version = f'1.4.{time_now}'
+    version = f'1.6.{time_now}'
 
     return version
 
@@ -36,7 +36,7 @@ setup(
     ],
     license = "GPL-3",
     install_requires = [
-        "python-ldap>=3.3"
+        "python-ldap==3.3"
     ],
     data_files = [
         ("/etc/obol", ["obol.conf"])
