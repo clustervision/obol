@@ -356,6 +356,7 @@ class Obol:
                 given_name=None,
                 password=None,
                 autogen_password=False,
+                prompt_password=False,
                 uid=None,
                 gid=None,
                 mail=None,
@@ -449,6 +450,9 @@ class Obol:
         if autogen_password:
             password = secrets.token_urlsafe(16)
             print(f"Generated password for user {username}: {password}")
+
+        if prompt_password:
+            password = input(f"Enter password for user {username}: ")
 
         if password:
             hashed_password = self._make_secret(password).encode('utf-8')
@@ -558,6 +562,7 @@ class Obol:
                 given_name=None,
                 password=None,
                 autogen_password=False,
+                prompt_password=False,
                 uid=None,
                 gid=None,
                 mail=None,
@@ -629,6 +634,8 @@ class Obol:
         if autogen_password:
             password = secrets.token_urlsafe(16)
             print(f"Generated password for user {username}: {password}")
+        if prompt_password:
+            password = input(f"Enter password for user {username}: ")
         if password:
             hashed_password = self._make_secret(password).encode('utf-8')
             mod_attrs.append((ldap.MOD_REPLACE, 'userPassword', hashed_password))
@@ -805,6 +812,7 @@ def run():
     user_add_command.add_argument('username')
     user_add_command_password_group = user_add_command.add_mutually_exclusive_group()
     user_add_command_password_group.add_argument('--password', '-p')
+    user_add_command_password_group.add_argument('--prompt-password', '-P', action='store_true')
     user_add_command_password_group.add_argument('--autogen-password', '--autogen', action='store_true')
     user_add_command.add_argument('--cn', metavar="COMMON NAME")
     user_add_command.add_argument('--sn', metavar="SURNAME")
@@ -827,6 +835,7 @@ def run():
     user_modify_command.add_argument('username')
     user_modify_command_password_group = user_modify_command.add_mutually_exclusive_group()
     user_modify_command_password_group.add_argument('--password', '-p')
+    user_modify_command_password_group.add_argument('--prompt-password', '-P', action='store_true')
     user_modify_command_password_group.add_argument('--autogen-password', '--autogen', action='store_true')
     user_modify_command.add_argument('--cn', metavar="COMMON NAME")
     user_modify_command.add_argument('--sn', metavar="SURNAME")
