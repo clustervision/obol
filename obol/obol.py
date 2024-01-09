@@ -473,6 +473,10 @@ class Obol:
         if not os.path.exists(home):
             os.mkdir(home)
             os.chown(home, int(uid), int(gid))
+        else:
+            home_folder_uid = int(os.stat(home).st_uid)
+            if home_folder_uid != int(uid):
+                print_warning(f"Home directory {home} already exists and has wrong owner uid {home_folder_uid}, should be {uid}")
 
     def group_add(self,
                 groupname=None,
