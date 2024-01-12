@@ -37,6 +37,7 @@ import argparse
 import configparser
 import secrets
 import logging
+from getpass import getpass
 from typing import List, Dict, Union
 
 import ldap
@@ -487,7 +488,7 @@ class Obol:
             print(f"Generated password for user {username}: {password}")
 
         if prompt_password:
-            password = input(f"Enter password for user {username}: ")
+            password = getpass(f"Enter password for user {username}: ")
 
         if password:
             hashed_password = self._make_secret(password).encode("utf-8")
@@ -689,7 +690,7 @@ class Obol:
             password = secrets.token_urlsafe(16)
             print(f"Generated password for user {username}: {password}")
         if prompt_password:
-            password = input(f"Enter password for user {username}: ")
+            password = getpass(f"Enter password for user {username}: ")
         if password:
             hashed_password = self._make_secret(password).encode("utf-8")
             mod_attrs.append((ldap.MOD_REPLACE, "userPassword", hashed_password))
