@@ -133,41 +133,42 @@ class Obol:
         "member"
     ]
 
-    def default_parser(self, field, value):
+    def default_parser(self, values):
         """Default parser for LDAP fields"""
-        return field, value[0].decode("utf-8")
+        return values[0].decode("utf-8")
 
-    def member_parser(self, field, values):
+    def member_parser(self, values):
         """Parser for LDAP member fields"""
         parsed_values = [v.decode("utf-8").split(",")[0].split("=")[1] for v in values]
-        return field, parsed_values
+        return parsed_values
 
-    def member_of_parser(self, field, values):
+    def member_of_parser(self, values):
         """Parser for LDAP memberOf fields"""
         parsed_values = [v.decode("utf-8").split(",")[0].split("=")[1] for v in values]
-        return field, parsed_values
+        return parsed_values
 
-    def default_serializer(self, field, value):
+    def default_serializer(self, value):
         """Default serializer for LDAP fields"""
-        return field, [value.encode("utf-8")]
+        return [value.encode("utf-8")]
 
-    def member_serializer(self, field, values):
+    def member_serializer(self, values):
         """Serializer for LDAP member fields"""
         serialized_values = [f"uid={v},ou=People,{self.base_dn}".encode("utf-8") for v in values]
-        return field, serialized_values
+        return serialized_values
 
-    def member_of_serializer(self, field, values):
+    def member_of_serializer(self, values):
         """Serializer for LDAP memberOf fields"""
         serialized_values = [f"cn={v},ou=Group,{self.base_dn}".encode("utf-8") for v in values]
-        return field, serialized_values
+        return serialized_values
 
-    parsers = {
-        "memberOf": member_of_parser,
-        "member": member_parser	
-    }
 
     def __init__(self, config_path, overrides=None):
         self.config = configparser.ConfigParser()
+        self.parsers = {
+            "memberOf": self.member_of_parser,
+            "member": self.member_parser	
+        }
+
 
         # try to open and read configuration from config_path
         with open(config_path, "r", encoding="utf-8") as config_file:
@@ -313,7 +314,7 @@ class Obol:
         ):
             # Decode bytes to utf8 and parse data
             user = {
-                k: [vi.decode("utf8") for vi in v][0]
+                k: self.parsers.get(k, self.default_parser)(v)
                 for k, v in attrs.items()
             }
             users.append(user)
@@ -332,7 +333,7 @@ class Obol:
         ):
             # Decode bytes to utf8 and parse data
             group = {
-                k: [vi.decode("utf8") for vi in v][0]
+                k: self.parsers.get(k, self.default_parser)(v)
                 for k, v in attrs.items()
             }
             groups.append(group)
@@ -351,25 +352,13 @@ class Obol:
         ):
             # Decode bytes to utf8 and parse data
             user = {
-                k: [vi.decode("utf8") for vi in v][0]
+                k: self.parsers.get(k, self.default_parser)(v)
                 for k, v in attrs.items()
-                if k in self.user_fields
             }
             break
         else:
             # Raise error if no user found
             raise LookupError(f"User '{username}' does not exist")
-
-        # Retrieve user's groups from LDAP
-        user["groups"] = []
-        filter_dn = "(objectclass=groupOfMembers)"
-        for _, attrs in self.conn.search_s(
-            self.groups_dn, ldap.SCOPE_SUBTREE, filter_dn
-        ):
-            # Decode bytes to utf8 and parse data
-            for member in attrs.get("member", []):
-                if member.decode("utf8").startswith(f"uid={username},"):
-                    user["groups"].append(attrs["cn"][0].decode("utf8"))
 
         return user
 
@@ -386,13 +375,9 @@ class Obol:
         ):
             # Decode bytes to utf8 and parse data
             group = {
-                k: [vi.decode("utf8") for vi in v]
+                k: self.parsers.get(k, self.default_parser)(v)
                 for k, v in attrs.items()
-                if k in self.group_fields
             }
-            group = {k: v[0] if not (k == "member") else v for k, v in group.items()}
-            members = group.pop("member") if "member" in group else []
-            group["users"] = [m.split(",")[0].split("=")[1] for m in members]
             break
         else:
             # Raise error if no group found
