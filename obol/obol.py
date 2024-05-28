@@ -55,16 +55,18 @@ def print_error(msg, name="Error"):
 
 def print_table(item: Union[List, Dict]):
     """Print a list of dicts as a table, dict as a transposed table"""
+    list_fields = ["cn", "uidNumber", "gidNumber", "member", "memberOf"]
+
     if isinstance(item, list):
         if len(item) == 0:
             print("No results")
             return
-        keys = item[0].keys()
+        keys = [ k for k in item[0].keys() if k in list_fields]
         widths = [len(key) for key in keys]
 
         for row in item:
             for i, key in enumerate(keys):
-                widths[i] = max(widths[i], len(str(row[key])))
+                widths[i] = max(widths[i], len(str(row.get(key, ""))))
 
         print(" | ".join([key.ljust(widths[i]) for i, key in enumerate(keys)]))
         print("-+-".join(["-" * widths[i] for i, key in enumerate(keys)]))
@@ -72,7 +74,7 @@ def print_table(item: Union[List, Dict]):
         for row in item:
             print(
                 " | ".join(
-                    [str(row[key]).ljust(widths[i]) for i, key in enumerate(keys)]
+                    [str(row.get(key, "")).ljust(widths[i]) for i, key in enumerate(keys)]
                 )
             )
 
@@ -122,8 +124,47 @@ class Obol:
         "givenName",
         "mail",
         "telephoneNumber",
+        "memberOf"
     ]
-    group_fields = ["cn", "gid", "gidNumber", "member"]
+    group_fields = [
+        "cn",
+        "gid",
+        "gidNumber",
+        "member"
+    ]
+
+    def default_parser(self, field, value):
+        """Default parser for LDAP fields"""
+        return field, value[0].decode("utf-8")
+
+    def member_parser(self, field, values):
+        """Parser for LDAP member fields"""
+        parsed_values = [v.decode("utf-8").split(",")[0].split("=")[1] for v in values]
+        return field, parsed_values
+
+    def member_of_parser(self, field, values):
+        """Parser for LDAP memberOf fields"""
+        parsed_values = [v.decode("utf-8").split(",")[0].split("=")[1] for v in values]
+        return field, parsed_values
+
+    def default_serializer(self, field, value):
+        """Default serializer for LDAP fields"""
+        return field, [value.encode("utf-8")]
+
+    def member_serializer(self, field, values):
+        """Serializer for LDAP member fields"""
+        serialized_values = [f"uid={v},ou=People,{self.base_dn}".encode("utf-8") for v in values]
+        return field, serialized_values
+
+    def member_of_serializer(self, field, values):
+        """Serializer for LDAP memberOf fields"""
+        serialized_values = [f"cn={v},ou=Group,{self.base_dn}".encode("utf-8") for v in values]
+        return field, serialized_values
+
+    parsers = {
+        "memberOf": member_of_parser,
+        "member": member_parser	
+    }
 
     def __init__(self, config_path, overrides=None):
         self.config = configparser.ConfigParser()
@@ -266,16 +307,14 @@ class Obol:
 
         # Retrieve users from LDAP
         users = []
-        fields = ["uid", "uidNumber", "gidNumber"]
         filter_dn = "(objectclass=posixAccount)"
         for _, attrs in self.conn.search_s(
-            self.users_dn, ldap.SCOPE_SUBTREE, filter_dn, fields
+            self.users_dn, ldap.SCOPE_SUBTREE, filter_dn, self.user_fields
         ):
             # Decode bytes to utf8 and parse data
             user = {
                 k: [vi.decode("utf8") for vi in v][0]
                 for k, v in attrs.items()
-                if k in fields
             }
             users.append(user)
 
@@ -287,19 +326,14 @@ class Obol:
 
         # Retrieve groups from LDAP
         groups = []
-        fields = [
-            "cn",
-            "gidNumber",
-        ]
         filter_dn = "(objectclass=posixGroup)"
         for _, attrs in self.conn.search_s(
-            self.groups_dn, ldap.SCOPE_SUBTREE, filter_dn, fields
+            self.groups_dn, ldap.SCOPE_SUBTREE, filter_dn, self.group_fields
         ):
             # Decode bytes to utf8 and parse data
             group = {
                 k: [vi.decode("utf8") for vi in v][0]
                 for k, v in attrs.items()
-                if k in fields
             }
             groups.append(group)
 
@@ -1071,6 +1105,7 @@ def run():
             exc,
             name=type(exc).__name__,
         )
+        raise exc
         sys.exit(1)
 
 
