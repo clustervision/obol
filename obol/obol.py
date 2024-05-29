@@ -37,16 +37,18 @@ import argparse
 import configparser
 import secrets
 import logging
+import inspect
 from getpass import getpass
 from typing import List, Dict, Union
 
 import ldap
 
+def print_info(msg, name="Info"):
+    print(f"[{name}] {msg}", file=sys.stdout)
 
 def print_warning(msg, name="Warning"):
     """Print a warning message to stderr"""
     print(f"[{name}] {msg}", file=sys.stderr)
-
 
 def print_error(msg, name="Error"):
     """Print an error message to stderr"""
@@ -92,8 +94,12 @@ def show_output(func):
 
     def inner(obol, *args, **kwargs):
         output = func(obol, *args, **kwargs)
-
-        output_type = kwargs.pop("output_type", None)
+        # get default output type for function
+        
+        default_output_type = inspect.signature(func).parameters.get("output_type", None)
+        if default_output_type:
+            default_output_type = default_output_type.default
+        output_type = default_output_type or kwargs.pop("output_type", None)
 
         if output_type == "json":
             print(json.dumps(output, indent=2))
@@ -874,7 +880,70 @@ class Obol:
         group_dn = f"cn={groupname},ou=Group,{self.base_dn}"
         self.conn.modify_s(group_dn, mod_attrs)
 
+    @show_output
+    def export_(self, output_type='json', **kwargs):
+        
+        users = self.user_list()
+        groups = self.group_list()
 
+        data = {
+            "users": users,
+            "groups": groups
+        }
+        
+        return data
+        
+        
+    def import_(self, data=None, **kwargs):
+        if not data:
+            print_info("Enter the data to import: ")
+            raw_data = sys.stdin.read()
+            data = json.loads(raw_data)
+        
+        users = data.get("users", [])
+        groups = data.get("groups", [])
+
+        for group in groups:
+            try: 
+                self.group_add(groupname=group["cn"], gid=group["gidNumber"])
+                print_info(f"Group {group['cn']} added")
+            except ValueError as exc:
+                print_warning(f"Group '{group['cn']}' already exists")
+            except Exception as exc:
+                print_error(f"Failed adding group {group['cn']}: {exc}")
+                
+        for user in users:
+            try:
+                self.user_add(
+                    username=user["uid"],
+                    cn=user.get("cn"),
+                    sn=user.get("sn"),
+                    given_name=user.get("givenName"),
+                    password=user.get("userPassword"),
+                    uid=user.get("uidNumber"),
+                    gid=user.get("gidNumber"),
+                    mail=user.get("mail"),
+                    phone=user.get("telephoneNumber"),
+                    shell=user.get("loginShell"),
+                    groups=user.get("memberOf"),
+                    home=user.get("homeDirectory"),
+                    expire=user.get("shadowExpire"),
+                )
+                print_info(f"User {user['uid']} added")
+            except ValueError as exc:
+                print_warning(f"User '{user['uid']}' already exists")
+        
+    def erase_(self, **kwargs):
+        """Erase all users and groups"""
+        users = self.user_list()
+        for user in users:
+            self.user_delete(user["uid"])
+        groups = self.group_list()
+        for group in groups:
+            self.group_delete(group["cn"])
+        
+        
+        
 def run():
     """
     Runs the CLI
@@ -900,154 +969,157 @@ def run():
         help="Output in JSON format",
     )
 
-    # Subparsers and commands
-    subparsers = parser.add_subparsers(help="commands", dest="target")
+    # Subparsers and subcommands
+    subparsers = parser.add_subparsers(help="subcommands", dest="command")
     user_parser = subparsers.add_parser(
         "user",
-        help="User commands",
+        help="User subcommands",
     )
-    group_parser = subparsers.add_parser("group", help="Group commands")
-    user_commands = user_parser.add_subparsers(dest="command")
-    group_commands = group_parser.add_subparsers(dest="command")
+    group_parser = subparsers.add_parser("group", help="Group subcommands")
+    user_subcommands = user_parser.add_subparsers(dest="subcommand")
+    group_subcommands = group_parser.add_subparsers(dest="subcommand")
+    import_command = subparsers.add_parser("import", help="Import all users and groups")
+    export_command = subparsers.add_parser("export", help="Export all users and groups")
+    # erase_command = subparsers.add_parser("erase", help="Erase all users and groups")
 
     # User add command
-    user_add_command = user_commands.add_parser("add", help="Add a user")
-    user_add_command.add_argument("username")
-    user_add_command_password_group = user_add_command.add_mutually_exclusive_group()
-    user_add_command_password_group.add_argument("--password", "-p")
-    user_add_command_password_group.add_argument(
+    user_addsubcommand = user_subcommands.add_parser("add", help="Add a user")
+    user_addsubcommand.add_argument("username")
+    user_addsubcommand_password_group = user_addsubcommand.add_mutually_exclusive_group()
+    user_addsubcommand_password_group.add_argument("--password", "-p")
+    user_addsubcommand_password_group.add_argument(
         "--prompt-password", "-P", action="store_true"
     )
-    user_add_command_password_group.add_argument(
+    user_addsubcommand_password_group.add_argument(
         "--autogen-password", "--autogen", action="store_true"
     )
-    user_add_command.add_argument("--cn", metavar="COMMON NAME")
-    user_add_command.add_argument("--sn", metavar="SURNAME")
-    user_add_command.add_argument("--givenName", dest="given_name")
-    user_add_command.add_argument(
+    user_addsubcommand.add_argument("--cn", metavar="COMMON NAME")
+    user_addsubcommand.add_argument("--sn", metavar="SURNAME")
+    user_addsubcommand.add_argument("--givenName", dest="given_name")
+    user_addsubcommand.add_argument(
         "--group", "-g", metavar="PRIMARY GROUP", dest="groupname"
     )
-    user_add_command.add_argument("--uid", metavar="USER ID")
-    user_add_command.add_argument("--gid", metavar="GROUP ID")
-    user_add_command.add_argument("--mail", metavar="EMAIL ADDRESS")
-    user_add_command.add_argument("--phone", metavar="PHONE NUMBER")
-    user_add_command.add_argument("--shell")
-    user_add_command.add_argument(
+    user_addsubcommand.add_argument("--uid", metavar="USER ID")
+    user_addsubcommand.add_argument("--gid", metavar="GROUP ID")
+    user_addsubcommand.add_argument("--mail", metavar="EMAIL ADDRESS")
+    user_addsubcommand.add_argument("--phone", metavar="PHONE NUMBER")
+    user_addsubcommand.add_argument("--shell")
+    user_addsubcommand.add_argument(
         "--groups",
         type=lambda s: s.split(","),
         help="A comma separated list of group names",
     )
-    user_add_command.add_argument(
+    user_addsubcommand.add_argument(
         "--expire",
         metavar="DAYS",
         help=(
             "Number of days after which the account expires. " "Set to -1 to disable"
         ),
     )
-    user_add_command.add_argument("--home", metavar="HOME")
+    user_addsubcommand.add_argument("--home", metavar="HOME")
 
     # User modify command
-    user_modify_command = user_commands.add_parser(
+    user_modifysubcommand = user_subcommands.add_parser(
         "modify", help="Modify a user attribute"
     )
-    user_modify_command.add_argument("username")
-    user_modify_command_password_group = (
-        user_modify_command.add_mutually_exclusive_group()
+    user_modifysubcommand.add_argument("username")
+    user_modifysubcommand_password_group = (
+        user_modifysubcommand.add_mutually_exclusive_group()
     )
-    user_modify_command_password_group.add_argument("--password", "-p")
-    user_modify_command_password_group.add_argument(
+    user_modifysubcommand_password_group.add_argument("--password", "-p")
+    user_modifysubcommand_password_group.add_argument(
         "--prompt-password", "-P", action="store_true"
     )
-    user_modify_command_password_group.add_argument(
+    user_modifysubcommand_password_group.add_argument(
         "--autogen-password", "--autogen", action="store_true"
     )
-    user_modify_command.add_argument("--cn", metavar="COMMON NAME")
-    user_modify_command.add_argument("--sn", metavar="SURNAME")
-    user_modify_command.add_argument("--givenName", dest="given_name")
-    user_modify_command.add_argument(
+    user_modifysubcommand.add_argument("--cn", metavar="COMMON NAME")
+    user_modifysubcommand.add_argument("--sn", metavar="SURNAME")
+    user_modifysubcommand.add_argument("--givenName", dest="given_name")
+    user_modifysubcommand.add_argument(
         "--group", "-g", metavar="PRIMARY GROUP", dest="groupname"
     )
-    user_modify_command.add_argument("--uid", metavar="USER ID")
-    user_modify_command.add_argument("--gid", metavar="GROUP ID")
-    user_modify_command.add_argument("--shell")
-    user_modify_command.add_argument("--mail", metavar="EMAIL ADDRESS")
-    user_modify_command.add_argument("--phone", metavar="PHONE NUMBER")
-    user_modify_command.add_argument(
+    user_modifysubcommand.add_argument("--uid", metavar="USER ID")
+    user_modifysubcommand.add_argument("--gid", metavar="GROUP ID")
+    user_modifysubcommand.add_argument("--shell")
+    user_modifysubcommand.add_argument("--mail", metavar="EMAIL ADDRESS")
+    user_modifysubcommand.add_argument("--phone", metavar="PHONE NUMBER")
+    user_modifysubcommand.add_argument(
         "--groups",
         type=lambda s: s.split(","),
         help="A comma separated list of group names",
     )
-    user_modify_command.add_argument(
+    user_modifysubcommand.add_argument(
         "--expire",
         metavar="DAYS",
         help=(
             "Number of days after which the account expires. " "Set to -1 to disable"
         ),
     )
-    user_modify_command.add_argument("--home", metavar="HOME")
+    user_modifysubcommand.add_argument("--home", metavar="HOME")
 
     # User show command
-    user_show_command = user_commands.add_parser("show", help="Show user details")
-    user_show_command.add_argument("username")
+    user_showsubcommand = user_subcommands.add_parser("show", help="Show user details")
+    user_showsubcommand.add_argument("username")
 
     # User delete command
-    user_delete_command = user_commands.add_parser("delete", help="Delete a user")
-    user_delete_command.add_argument("username")
+    user_deletesubcommand = user_subcommands.add_parser("delete", help="Delete a user")
+    user_deletesubcommand.add_argument("username")
 
     # User list command
-    _ = user_commands.add_parser("list", help="List users")
+    _ = user_subcommands.add_parser("list", help="List users")
 
     # Group add command
-    group_add_command = group_commands.add_parser("add", help="Add a group")
-    group_add_command.add_argument("groupname")
-    group_add_command.add_argument("--gid", metavar="GROUP ID")
-    group_add_command.add_argument(
+    group_addsubcommand = group_subcommands.add_parser("add", help="Add a group")
+    group_addsubcommand.add_argument("groupname")
+    group_addsubcommand.add_argument("--gid", metavar="GROUP ID")
+    group_addsubcommand.add_argument(
         "--users",
         type=lambda s: s.split(","),
         help="A comma separated list of usernames",
     )
 
     # Group modify command
-    group_modify_command = group_commands.add_parser("modify", help="Modify a group")
-    group_modify_command.add_argument("groupname")
-    group_modify_command.add_argument("--gid", metavar="GROUP ID")
-    group_modify_command.add_argument(
+    group_modifysubcommand = group_subcommands.add_parser("modify", help="Modify a group")
+    group_modifysubcommand.add_argument("groupname")
+    group_modifysubcommand.add_argument("--gid", metavar="GROUP ID")
+    group_modifysubcommand.add_argument(
         "--users",
         type=lambda s: s.split(","),
         help="A comma separated list of usernames",
     )
 
     # Group rename command
-    group_addusers_command = group_commands.add_parser(
+    group_adduserssubcommand = group_subcommands.add_parser(
         "rename", help="Rename group but keep its GID and users"
     )
-    group_addusers_command.add_argument("groupname")
-    group_addusers_command.add_argument("new_groupname")
+    group_adduserssubcommand.add_argument("groupname")
+    group_adduserssubcommand.add_argument("new_groupname")
 
     # Group addusers command
-    group_addusers_command = group_commands.add_parser(
+    group_adduserssubcommand = group_subcommands.add_parser(
         "addusers", help="Add users to a group"
     )
-    group_addusers_command.add_argument("groupname")
-    group_addusers_command.add_argument("usernames", nargs="+")
+    group_adduserssubcommand.add_argument("groupname")
+    group_adduserssubcommand.add_argument("usernames", nargs="+")
 
     # Group delusers command
-    group_delusers_command = group_commands.add_parser(
+    group_deluserssubcommand = group_subcommands.add_parser(
         "delusers", help="Delete users from a group"
     )
-    group_delusers_command.add_argument("groupname")
-    group_delusers_command.add_argument("usernames", nargs="+")
+    group_deluserssubcommand.add_argument("groupname")
+    group_deluserssubcommand.add_argument("usernames", nargs="+")
 
     # Group show command
-    group_show_command = group_commands.add_parser("show", help="Show group details")
-    group_show_command.add_argument("groupname")
+    group_showsubcommand = group_subcommands.add_parser("show", help="Show group details")
+    group_showsubcommand.add_argument("groupname")
 
     # Group delete command
-    group_delete_commands = group_commands.add_parser("delete", help="Delete a group")
-    group_delete_commands.add_argument("groupname")
+    group_deletesubcommands = group_subcommands.add_parser("delete", help="Delete a group")
+    group_deletesubcommands.add_argument("groupname")
 
     # Group list command
-    _ = group_commands.add_parser("list", help="List groups")
+    _ = group_subcommands.add_parser("list", help="List groups")
 
     # Run command
     try:
@@ -1072,18 +1144,22 @@ def run():
 
         args = vars(parser.parse_args())
         obol = Obol("/etc/obol.conf", overrides=args)
-        if args["target"] is None or args["command"] is None:
-            if args["target"] == "user":
+
+        method_name = f"{args['command']}_{ args.get('subcommand', '')}"
+        function = getattr(obol, method_name, None)
+        
+        if function is not None:
+            function(**args, warn=True)
+            logging.info(f"Command '{logged_cmd}' succeeded")
+        else:
+            if args["command"] == "user":
                 user_parser.print_help()
-            elif args["target"] == "group":
+            elif args["command"] == "group":
                 group_parser.print_help()
             else:
                 parser.print_help()
             sys.exit(1)
-        method_name = f"{args['target']}_{ args['command']}"
-        function = getattr(obol, method_name, None)
-        function(**args, warn=True)
-        logging.info(f"Command '{logged_cmd}' succeeded")
+
     except Exception as exc:
         logging.error(f"Command '{logged_cmd}' failed: {exc}")
         print_error(
