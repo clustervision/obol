@@ -7,16 +7,13 @@ from obol.obol import *
 
 class TestObolMehods(unittest.TestCase):
     """Test Obol methods"""
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
 
     def test_load_config(self):
         """Test load config"""
         Obol('/etc/obol.conf')
 
-    
     @patch('obol.obol.print')
-    def test_prints(self, fakeprint):
+    def test_prints(self, mocked_print):
         print_error('test')
         print_warning('test')
         print_table([])
@@ -60,7 +57,7 @@ class TestObolMehods(unittest.TestCase):
         )
     
     @patch('obol.obol.print')
-    def test_show_output(self, fakeprint):
+    def test_show_output(self, mocked_print):
         """Test show output"""
         
         @show_output
@@ -86,23 +83,26 @@ class TestObolMehods(unittest.TestCase):
         fn(None, output_type='json')
         fn(None, output_type='table')
 
+
 class TestLdapMethods(unittest.TestCase):
     """Test User methods"""
-    def __init__(self, *args, **kwargs) -> None:
+    
+    def setUp(self):
         self.obol = Obol('/etc/obol.conf')
-        super().__init__(*args, **kwargs)
+    
+    def tearDown(self):
+        self.obol.erase_()
         
-        
-    def test_group_simple1(self):
+    @patch('obol.obol.print_warning')
+    def test_group_simple1(self, mocked_print_warning):
         """Test simple"""
         self.obol.group_add('testgroup')
         testgroup = self.obol.group_show('testgroup')
 
         assert testgroup['cn'] == 'testgroup'
-        self.obol.group_delete('testgroup')
         
-        
-    def test_user_simple1(self):
+    @patch('obol.obol.print_warning')
+    def test_user_simple1(self, mocked_print_warning):
         """Test simple"""
         self.obol.user_add('testuser')
         testuser = self.obol.user_show('testuser')
@@ -110,11 +110,9 @@ class TestLdapMethods(unittest.TestCase):
         assert testuser['uid'] == 'testuser'
         assert testuser['homeDirectory'] == self.obol.config.get('users', 'home') +  '/testuser'
         assert testuser['loginShell'] == self.obol.config.get('users', 'shell')
-        
-        self.obol.user_delete('testuser')
-    
-    
-    def test_user_simple2(self):
+
+    @patch('obol.obol.print_warning')
+    def test_user_simple2(self, mocked_print_warning):
         self.obol.user_add('testuser1', uid="1000")
         self.obol.user_add('testuser2', uid=1001)
         
@@ -126,12 +124,9 @@ class TestLdapMethods(unittest.TestCase):
         
         assert testuser2['cn'] == 'testuser2'
         assert testuser2['uidNumber'] == "1001"        
-
-        self.obol.user_delete('testuser1')
-        self.obol.user_delete('testuser2')
         
-        
-    def test_group_complex1(self):
+    @patch('obol.obol.print_warning')
+    def test_group_complex1(self, mocked_print_warning):
         """Test complete"""
         self.obol.user_add('testuser1')
         self.obol.user_add('testuser2')
@@ -148,14 +143,9 @@ class TestLdapMethods(unittest.TestCase):
         assert testgroup2['cn'] == 'testgroup2'
         assert testgroup2['gidNumber'] == "1001"
         assert testgroup2['member'] == ['testuser1', 'testuser2']
-        
-        self.obol.user_delete('testuser1')
-        self.obol.user_delete('testuser2')
-        self.obol.group_delete('testgroup1')
-        self.obol.group_delete('testgroup2')
 
-
-    def test_user_complex1(self):
+    @patch('obol.obol.print_warning')
+    def test_user_complex1(self, mocked_print_warning):
         self.obol.user_add('testuser1', cn='cn', sn='sn', given_name='given_name', mail='mail', phone='phone', shell='shell')
         
         testuser1 = self.obol.user_show('testuser1')
@@ -167,10 +157,8 @@ class TestLdapMethods(unittest.TestCase):
         assert testuser1['telephoneNumber'] == 'phone'
         assert testuser1['loginShell'] == 'shell'
         
-        self.obol.user_delete('testuser1')
-        
-        
-    def test_user_complex2(self):
+    @patch('obol.obol.print_warning')
+    def test_user_complex2(self, mocked_print_warning):
         """Test complete"""
         self.obol.group_add('testgroup1')
         self.obol.group_add('testgroup2')
@@ -184,12 +172,8 @@ class TestLdapMethods(unittest.TestCase):
         assert all([x in testuser1['memberOf'] for x in ['testgroup1', 'testgroup2', 'testgroup3']])
         assert not any([x not in ['testgroup1', 'testgroup2', 'testgroup3'] for x in testuser1['memberOf'] ])
 
-        self.obol.user_delete('testuser1')
-        self.obol.group_delete('testgroup1')
-        self.obol.group_delete('testgroup2')
-        self.obol.group_delete('testgroup3')
-    
-    def test_combined_complex1(self):
+    @patch('obol.obol.print_warning')
+    def test_combined_complex1(self, mocked_print_warning):
         self.obol.group_add('testgroup1')
         self.obol.group_add('testgroup2')
         self.obol.group_add('testgroup3')
@@ -210,16 +194,9 @@ class TestLdapMethods(unittest.TestCase):
         testgroup1 = self.obol.group_show('testgroup1')
         
         assert not any([x in testgroup1.get('member', []) for x in ['testuser1', 'testuser2']])
-
-
-        self.obol.user_delete('testuser1')
-        self.obol.user_delete('testuser2')
-        self.obol.user_delete('testuser3')
-        self.obol.group_delete('testgroup1')
-        self.obol.group_delete('testgroup2')
-        self.obol.group_delete('testgroup3')
-        
-    def test_combined_complex2(self):
+    
+    @patch('obol.obol.print_warning')
+    def test_combined_complex2(self, mocked_print_warning):
         
         self.obol.group_add('testgroup1')
         self.obol.group_add('testgroup2')
@@ -252,18 +229,12 @@ class TestLdapMethods(unittest.TestCase):
         
         assert all([x in testuser3['memberOf'] for x in ['testgroup01', 'testgroup02', 'testgroup03']])
         assert not any([x not in ['testgroup01', 'testgroup02', 'testgroup03'] for x in testuser3['memberOf'] ])
-        
-        self.obol.user_delete('testuser1')
-        self.obol.user_delete('testuser2')
-        self.obol.user_delete('testuser3')
-        self.obol.group_delete('testgroup01')
-        self.obol.group_delete('testgroup02')
-        self.obol.group_delete('testgroup03')
-        
+
         groups = self.obol.group_list()
         assert not any([x in ['testgroup01', 'testgroup02', 'testgroup03'] for x in groups])
    
-    def test_combined_complex3(self):
+    @patch('obol.obol.print_warning')
+    def test_combined_complex3(self, mocked_print_warning):
         
         self.obol.group_add('testgroup1')
         self.obol.group_add('testgroup2')
@@ -271,21 +242,48 @@ class TestLdapMethods(unittest.TestCase):
         self.obol.user_add('testuser1', groupname='testgroup1')
         self.obol.user_add('testuser2', groups=['testgroup1', 'testgroup2'])
         
-        self.obol.group_modify('testgroup1', users=['testuser2'])
+        self.obol.group_modify('testgroup1', users=[])
         self.obol.group_modify('testgroup2', users=[])
         
-        assert self.obol.group_show('testgroup1')['member'] == ['testuser2']
-        assert self.obol.group_show('testgroup2')['member'] == []
+
         
-        self.obol.group_modify('testgroup2', users=[])
-        self.obol.user_add('testuser2', groups=['testgroup1', 'testgroup2'])
+        testuser1 = self.obol.user_show('testuser1')
+        testuser2 = self.obol.user_show('testuser2')
+        testgroup1 = self.obol.group_show('testgroup1')
+        testgroup2 = self.obol.group_show('testgroup2')
+
+        # from pprint import pprint        
+        # pprint([
+        #     testuser1,
+        #     testuser2,
+        #     testgroup1,
+        #     testgroup2
+        # ])
         
+        assert testuser1['memberOf'] == ['testgroup1']
+        assert testuser2['memberOf'] == ['testuser2']
         
-        
-        self.obol.user_delete('testuser1')
-        self.obol.user_delete('testuser2')
-        self.obol.group_delete('testgroup1')
-        self.obol.group_delete('testgroup2')
     
+    @patch('obol.obol.print')
+    def test_import_erase_export(self, mocked_print):
+        
+        self.obol.group_add('testgroup1')
+        self.obol.group_add('testgroup2')
+        self.obol.group_add('testgroup3')
+        
+        self.obol.user_add('testuser1', groupname='testgroup1')
+        self.obol.user_add('testuser2', groups=['testgroup1', 'testgroup2'])
+        self.obol.user_add('testuser3', groupname='testgroup1', groups=['testgroup2', 'testgroup3'])
+        
+        data = self.obol.export_()
+        self.obol.erase_()
+        self.obol.import_(data)
+        
+        data_new = self.obol.export_()
+        
+        assert data == data_new
+
+        
+        
 # if __name__ == '__main__':
 #     unittest.main()

@@ -769,7 +769,7 @@ class Obol:
             # Not implemented yet
             raise NotImplementedError("changing GID of existing group is not supported")
 
-        if users:
+        if users is not None:
             # Ensure users exist
             existing_users = self.user_list()
             existing_usernames = [u["uid"] for u in existing_users]
@@ -789,8 +789,7 @@ class Obol:
             users_to_del = [
                 u
                 for u in existing_group["member"]
-                if (u not in existing_group_usernames)
-                and (u not in existing_primary_group_usernames)
+                if (u not in existing_primary_group_usernames)
             ]
 
         # Modify the group
@@ -980,7 +979,7 @@ def run():
     group_subcommands = group_parser.add_subparsers(dest="subcommand")
     import_command = subparsers.add_parser("import", help="Import all users and groups")
     export_command = subparsers.add_parser("export", help="Export all users and groups")
-    # erase_command = subparsers.add_parser("erase", help="Erase all users and groups")
+    erase_command = subparsers.add_parser("erase", help="Erase all users and groups")
 
     # User add command
     user_addsubcommand = user_subcommands.add_parser("add", help="Add a user")
