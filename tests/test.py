@@ -274,10 +274,18 @@ class TestLdapMethods(unittest.TestCase):
         self.obol.group_modify('testgroup1', users=['testuser2'])
         self.obol.group_modify('testgroup2', users=[])
         
+        assert self.obol.group_show('testgroup1')['member'] == ['testuser2']
+        assert self.obol.group_show('testgroup2')['member'] == []
+        
+        self.obol.group_modify('testgroup2', users=[])
+        self.obol.user_add('testuser2', groups=['testgroup1', 'testgroup2'])
+        
+        
+        
         self.obol.user_delete('testuser1')
         self.obol.user_delete('testuser2')
         self.obol.group_delete('testgroup1')
         self.obol.group_delete('testgroup2')
-        
+    
 # if __name__ == '__main__':
 #     unittest.main()
