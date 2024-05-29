@@ -245,23 +245,15 @@ class TestLdapMethods(unittest.TestCase):
         self.obol.group_modify('testgroup1', users=[])
         self.obol.group_modify('testgroup2', users=[])
         
-
-        
         testuser1 = self.obol.user_show('testuser1')
         testuser2 = self.obol.user_show('testuser2')
         testgroup1 = self.obol.group_show('testgroup1')
         testgroup2 = self.obol.group_show('testgroup2')
-
-        # from pprint import pprint        
-        # pprint([
-        #     testuser1,
-        #     testuser2,
-        #     testgroup1,
-        #     testgroup2
-        # ])
         
         assert testuser1['memberOf'] == ['testgroup1']
         assert testuser2['memberOf'] == ['testuser2']
+        assert testgroup1['member'] == ['testuser1']
+        assert testgroup2.get('member', []) == []
         
     
     @patch('obol.obol.print')
@@ -283,7 +275,20 @@ class TestLdapMethods(unittest.TestCase):
         
         assert data == data_new
 
+
+    @patch('obol.obol.os.urandom')
+    def test_password(self, mocked_os_urandom):
+        mocked_os_urandom.return_value = b'\x7f.jZ'
+        self.obol.user_add('testuser1', password='testpassword')
+        self.obol.user_add('testuser2') 
         
+        password_hash = self.obol._make_secret('testpassword')
+        
+        testuser1 = self.obol.user_show('testuser1')
+        testuser2 = self.obol.user_show('testuser2')
+        
+        assert testuser1['userPassword'] == password_hash
+        assert testuser2.get('userPassword', None) == None
         
 # if __name__ == '__main__':
 #     unittest.main()
