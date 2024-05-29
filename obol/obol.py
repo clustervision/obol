@@ -55,7 +55,7 @@ def print_error(msg, name="Error"):
 
 def print_table(item: Union[List, Dict]):
     """Print a list of dicts as a table, dict as a transposed table"""
-    list_fields = ["cn", "uidNumber", "gidNumber", "member", "memberOf"]
+    list_fields = ["uid", "cn", "uidNumber", "gidNumber", "member", "memberOf"]
 
     if isinstance(item, list):
         if len(item) == 0:
@@ -241,7 +241,7 @@ class Obol:
         """Show system user details"""
         users = _users or self.user_list()
         for user in users:
-            if user["uidNumber"] == uid:
+            if user["uidNumber"] == str(uid):
                 return user
         return None
 
@@ -249,7 +249,7 @@ class Obol:
         """Show system group details"""
         groups = _groups or self.group_list()
         for group in groups:
-            if group["gidNumber"] == gid:
+            if group["gidNumber"] == str(gid):
                 return group
         return None
 
@@ -289,7 +289,7 @@ class Obol:
         """Check if a uid exists"""
         users = _users or self.user_list()
         for user in users:
-            if user["uidNumber"] == uid:
+            if user["uidNumber"] == str(uid):
                 return True
         return False
 
@@ -297,7 +297,7 @@ class Obol:
         """Check if a gid exists"""
         groups = _groups or self.group_list()
         for group in groups:
-            if group["gidNumber"] == gid:
+            if group["gidNumber"] == str(gid):
                 return True
         return False
 
@@ -483,8 +483,8 @@ class Obol:
             ("cn", [cn.encode("utf-8")]),
             ("sn", [sn.encode("utf-8")]),
             ("loginShell", [shell.encode("utf-8")]),
-            ("uidNumber", [uid.encode("utf-8")]),
-            ("gidNumber", [gid.encode("utf-8")]),
+            ("uidNumber", [str(uid).encode("utf-8")]),
+            ("gidNumber", [str(gid).encode("utf-8")]),
             ("homeDirectory", [home.encode("utf-8")]),
             ("shadowMin", [b"0"]),
             ("shadowMax", [b"99999"]),
@@ -565,7 +565,7 @@ class Obol:
         group_record = [
             ("objectclass", [b"top", b"groupOfMembers", b"posixGroup"]),
             ("cn", [groupname.encode("utf-8")]),
-            ("gidNumber", [gid.encode("utf-8")]),
+            ("gidNumber", [str(gid).encode("utf-8")]),
         ]
         self.conn.add_s(group_dn, group_record)
 
@@ -589,7 +589,7 @@ class Obol:
         # Delete the default group if it exists and has no other members
         try:
             group = self.group_show(username)
-            if len(group["users"]) == 0:
+            if len(group.get("member", [])) == 0:
                 group_dn = f"cn={group['cn']},ou=Group,{self.base_dn}"
                 self.conn.delete_s(group_dn)
         except LookupError:
@@ -605,7 +605,7 @@ class Obol:
 
         # Ensure group has no members
         group = self.group_show(groupname)
-        if len(group["users"]) > 0:
+        if len(group.get("member", [])) > 0:
             raise ValueError(f"Group '{groupname}' has members")
         # Delete the group
         group_dn = f"cn={groupname},ou=Group,{self.base_dn}"
@@ -773,7 +773,7 @@ class Obol:
                     f"Users '{', '.join(incorrect_usernames)}' do not exist"
                 )
 
-            existing_group_usernames = existing_group["users"]
+            existing_group_usernames = existing_group["member"]
             existing_primary_group_usernames = [
                 u["uid"]
                 for u in existing_users
@@ -782,7 +782,7 @@ class Obol:
             users_to_add = [u for u in users if u not in existing_group_usernames]
             users_to_del = [
                 u
-                for u in existing_group["users"]
+                for u in existing_group["member"]
                 if (u not in existing_group_usernames)
                 and (u not in existing_primary_group_usernames)
             ]
@@ -820,7 +820,7 @@ class Obol:
 
         # Ensure group exists
         existing_group = self.group_show(groupname)
-        if all(u in existing_group["users"] for u in usernames):
+        if all(u in existing_group.get("member", []) for u in usernames):
             return
 
         # Ensure users exist

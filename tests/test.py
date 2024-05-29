@@ -1,13 +1,9 @@
 import random
 import string
 import unittest
-from obol.obol import Obol
+from unittest.mock import patch
+from obol.obol import *
 
-def _random_random_string(length: int = 10) -> str:
-    return ''.join(random.choice(string.ascii_letters) for i in range(length))
-
-def _random_random_int(length: int = 10) -> int:
-    return random.randint(0, 10**length)
 
 class TestObolMehods(unittest.TestCase):
     """Test Obol methods"""
@@ -18,296 +14,270 @@ class TestObolMehods(unittest.TestCase):
         """Test load config"""
         Obol('/etc/obol.conf')
 
+    
+    @patch('obol.obol.print')
+    def test_prints(self, fakeprint):
+        print_error('test')
+        print_warning('test')
+        print_table([])
+        print_table([
+            {
+                "uid": "testuser",
+                "cn": "testuser",
+                "sn": "testuser",
+                "loginShell": "/bin/bash",
+                "uidNumber": "1050",
+                "gidNumber": "150",
+                "homeDirectory": "/trinity/home/testuser",
+                "shadowMin": "0",
+                "shadowMax": "99999",
+                "shadowWarning": "7",
+                "shadowExpire": "-1",
+                "shadowLastChange": "19871",
+                "memberOf": [
+                "testuser"
+                ]
+            }
+        ])
+        print_table(
+            {
+                "uid": "testuser",
+                "cn": "testuser",
+                "sn": "testuser",
+                "loginShell": "/bin/bash",
+                "uidNumber": "1050",
+                "gidNumber": "150",
+                "homeDirectory": "/trinity/home/testuser",
+                "shadowMin": "0",
+                "shadowMax": "99999",
+                "shadowWarning": "7",
+                "shadowExpire": "-1",
+                "shadowLastChange": "19871",
+                "memberOf": [
+                "testuser"
+                ]
+            }
+        )
+    
+    @patch('obol.obol.print')
+    def test_show_output(self, fakeprint):
+        """Test show output"""
+        
+        @show_output
+        def fn(obol, *args,  **kwargs):
+            return {
+                "uid": "testuser",
+                "cn": "testuser",
+                "sn": "testuser",
+                "loginShell": "/bin/bash",
+                "uidNumber": "1050",
+                "gidNumber": "150",
+                "homeDirectory": "/trinity/home/testuser",
+                "shadowMin": "0",
+                "shadowMax": "99999",
+                "shadowWarning": "7",
+                "shadowExpire": "-1",
+                "shadowLastChange": "19871",
+                "memberOf": [
+                "testuser"
+                ]
+            }
+        
+        fn(None, output_type='json')
+        fn(None, output_type='table')
 
-class TestUserMethods(unittest.TestCase):
+class TestLdapMethods(unittest.TestCase):
     """Test User methods"""
     def __init__(self, *args, **kwargs) -> None:
         self.obol = Obol('/etc/obol.conf')
         super().__init__(*args, **kwargs)
+        
+        
+    def test_group_simple1(self):
+        """Test simple"""
+        self.obol.group_add('testgroup')
+        testgroup = self.obol.group_show('testgroup')
 
-    def test_list(self):
-        """Test list users"""
-        users = self.obol.user_list()
-        assert isinstance(users, list)
-        assert all(isinstance(u, dict) for u in users)
-        assert all('uidNumber' in u for u in users)
-        assert all('uid' in u for u in users)
+        assert testgroup['cn'] == 'testgroup'
+        self.obol.group_delete('testgroup')
+        
+        
+    def test_user_simple1(self):
+        """Test simple"""
+        self.obol.user_add('testuser')
+        testuser = self.obol.user_show('testuser')
+        
+        assert testuser['uid'] == 'testuser'
+        assert testuser['homeDirectory'] == self.obol.config.get('users', 'home') +  '/testuser'
+        assert testuser['loginShell'] == self.obol.config.get('users', 'shell')
+        
+        self.obol.user_delete('testuser')
+    
+    
+    def test_user_simple2(self):
+        self.obol.user_add('testuser1', uid="1000")
+        self.obol.user_add('testuser2', uid=1001)
+        
+        testuser1 = self.obol.user_show('testuser1')
+        testuser2 = self.obol.user_show('testuser2')
+        
+        assert testuser1['cn'] == 'testuser1'
+        assert testuser1['uidNumber'] == "1000"
+        
+        assert testuser2['cn'] == 'testuser2'
+        assert testuser2['uidNumber'] == "1001"        
 
-    def test_add(self):
-        """Test add user"""
-        username = _random_random_string(10)
-        self.obol.user_add(username)
-        user = self.obol.user_show(username)
-        assert user['uid'] == username
-        self.obol.user_delete(username)
+        self.obol.user_delete('testuser1')
+        self.obol.user_delete('testuser2')
+        
+        
+    def test_group_complex1(self):
+        """Test complete"""
+        self.obol.user_add('testuser1')
+        self.obol.user_add('testuser2')
+        self.obol.group_add('testgroup1', gid="1000", users=['testuser1'])
+        self.obol.group_add('testgroup2', gid=1001, users=['testuser1', 'testuser2'])
+        
+        testgroup1 = self.obol.group_show('testgroup1')
+        testgroup2 = self.obol.group_show('testgroup2')
 
-    def test_add_with_password(self):
-        """Test add user with password"""
-        username = _random_random_string(10)
-        password = _random_random_string(10)
-        self.obol.user_add(username, password=password)
-        user = self.obol.user_show(username)
-        assert user['cn'] == username
-        assert user['userPassword'].startswith('{SSHA}')
-        self.obol.user_delete(username)
+        assert testgroup1['cn'] == 'testgroup1'
+        assert testgroup1['gidNumber'] == "1000"
+        assert testgroup1['member'] == ['testuser1']
+        
+        assert testgroup2['cn'] == 'testgroup2'
+        assert testgroup2['gidNumber'] == "1001"
+        assert testgroup2['member'] == ['testuser1', 'testuser2']
+        
+        self.obol.user_delete('testuser1')
+        self.obol.user_delete('testuser2')
+        self.obol.group_delete('testgroup1')
+        self.obol.group_delete('testgroup2')
 
-    def test_add_with_password_and_shell(self):
-        """Test add user with password and shell"""
-        username = _random_random_string(10)
-        password = _random_random_string(10)
-        shell = '/bin/bash'
-        self.obol.user_add(username, password=password, shell=shell)
-        user = self.obol.user_show(username)
-        assert user['cn'] == username
-        assert user['userPassword'].startswith('{SSHA}')
-        assert user['loginShell'] == shell
-        self.obol.user_delete(username)
 
-    def test_add_complete(self):
-        """Test add user with all attributes"""
-        username = _random_random_string(10)
-        cn = _random_random_string(10)
-        sn = _random_random_string(10)
-        given_name = _random_random_string(10)
-        password = _random_random_string(10)
-        uid = str(_random_random_int(4))
-        gid = None
-        mail = _random_random_string(10)
-        phone = _random_random_string(10)
-        shell = '/bin/bash'
-        groupname = None
-        groups = None
-        home = '/home/' + username
-        expire = str(_random_random_int(10))
-        self.obol.user_add(username,
-            cn=cn,
-            sn=sn,
-            given_name=given_name,
-            password=password,
-            uid=uid,
-            gid=gid,
-            mail=mail,
-            phone=phone,
-            shell=shell,
-            groupname=groupname,
-            groups=groups,
-            home=home,
-            expire=expire,
-            )
+    def test_user_complex1(self):
+        self.obol.user_add('testuser1', cn='cn', sn='sn', given_name='given_name', mail='mail', phone='phone', shell='shell')
+        
+        testuser1 = self.obol.user_show('testuser1')
+        
+        assert testuser1['cn'] == 'cn'
+        assert testuser1['sn'] == 'sn'
+        assert testuser1['givenName'] == 'given_name'
+        assert testuser1['mail'] == 'mail'
+        assert testuser1['telephoneNumber'] == 'phone'
+        assert testuser1['loginShell'] == 'shell'
+        
+        self.obol.user_delete('testuser1')
+        
+        
+    def test_user_complex2(self):
+        """Test complete"""
+        self.obol.group_add('testgroup1')
+        self.obol.group_add('testgroup2')
+        self.obol.group_add('testgroup3')
+        
+        self.obol.user_add('testuser1', groupname='testgroup1', groups=['testgroup2', 'testgroup3'])
+        
+        testuser1 = self.obol.user_show('testuser1')
 
-        user = self.obol.user_show(username)
-        assert user['cn'] == cn
-        assert user['sn'] == sn
-        assert user['givenName'] == given_name
-        assert user['userPassword'].startswith('{SSHA}')
-        assert user['uidNumber'] == uid
-        assert user['mail'] == mail
-        assert user['telephoneNumber'] == phone
-        assert user['loginShell'] == shell
-        assert user['homeDirectory'] == home
-        self.obol.user_delete(username)
+        assert testuser1['uid'] == 'testuser1'
+        assert all([x in testuser1['memberOf'] for x in ['testgroup1', 'testgroup2', 'testgroup3']])
+        assert not any([x not in ['testgroup1', 'testgroup2', 'testgroup3'] for x in testuser1['memberOf'] ])
 
-    def test_modify(self):
-        """Test modify user"""
-        username = _random_random_string(10)
-        cn = _random_random_string(10)
-        sn = _random_random_string(10)
-        given_name = _random_random_string(10)
-        password = _random_random_string(10)
-        uid = str(_random_random_int(4))
-        gid = None
-        mail = _random_random_string(10)
-        phone = _random_random_string(10)
-        shell = '/bin/bash'
-        groupname = None
-        groups = None
-        home = '/home/' + username
-        expire = str(_random_random_int(10))
-        self.obol.user_add(username)
-        self.obol.user_modify(username,
-            cn=cn,
-            sn=sn,
-            given_name=given_name,
-            password=password,
-            uid=None,
-            mail=mail,
-            phone=phone,
-            shell=shell,
-            groupname=groupname,
-            groups=groups,
-            home=home,
-            expire=expire,
-            )
-        user = self.obol.user_show(username)
-        assert user['cn'] == cn
-        assert user['sn'] == sn
-        assert user['givenName'] == given_name
-        assert user['userPassword'].startswith('{SSHA}')
-        assert user['mail'] == mail
-        assert user['telephoneNumber'] == phone
-        assert user['loginShell'] == shell
-        assert user['homeDirectory'] == home
-        self.obol.user_delete(username)
+        self.obol.user_delete('testuser1')
+        self.obol.group_delete('testgroup1')
+        self.obol.group_delete('testgroup2')
+        self.obol.group_delete('testgroup3')
+    
+    def test_combined_complex1(self):
+        self.obol.group_add('testgroup1')
+        self.obol.group_add('testgroup2')
+        self.obol.group_add('testgroup3')
+        
+        self.obol.user_add('testuser1')
+        self.obol.user_add('testuser2')
+        self.obol.user_add('testuser3')
+        
+        self.obol.group_addusers('testgroup1', ['testuser1', 'testuser2'])
+        
+        testgroup1 = self.obol.group_show('testgroup1')
+        
+        assert all([x in testgroup1['member'] for x in ['testuser1', 'testuser2']])
+        assert not any([x not in ['testuser1', 'testuser2'] for x in testgroup1['member'] ])
+        
+        self.obol.group_delusers('testgroup1', ['testuser1', 'testuser2'])
+        
+        testgroup1 = self.obol.group_show('testgroup1')
+        
+        assert not any([x in testgroup1.get('member', []) for x in ['testuser1', 'testuser2']])
 
-    def test_delete(self):
-        """Test delete user"""
-        username = _random_random_string(10)
-        self.obol.user_add(username)
-        self.obol.user_delete(username)
-        users = self.obol.user_list()
-        assert username not in [u['uid'] for u in users]
 
-class TestGroupMethods(unittest.TestCase):
-    """Test Group methods"""
-
-    def __init__(self, *args, **kwargs) -> None:
-        self.obol = Obol('/etc/obol.conf')
-        super().__init__(*args, **kwargs)
-
-    def test_list(self):
-        """Test list groups"""
+        self.obol.user_delete('testuser1')
+        self.obol.user_delete('testuser2')
+        self.obol.user_delete('testuser3')
+        self.obol.group_delete('testgroup1')
+        self.obol.group_delete('testgroup2')
+        self.obol.group_delete('testgroup3')
+        
+    def test_combined_complex2(self):
+        
+        self.obol.group_add('testgroup1')
+        self.obol.group_add('testgroup2')
+        self.obol.group_add('testgroup3')
+        
+        self.obol.user_add('testuser1', groupname='testgroup1')
+        self.obol.user_add('testuser2', groups=['testgroup2', 'testgroup3']) 
+        self.obol.user_add('testuser3', groupname='testgroup1', groups=['testgroup2', 'testgroup3'])
+        
+        self.obol.group_rename('testgroup1', 'testgroup01')
+        self.obol.group_rename('testgroup2', 'testgroup02')
+        self.obol.group_rename('testgroup3', 'testgroup03')
+        
+        testuser1 = self.obol.user_show('testuser1')
+        testuser2 = self.obol.user_show('testuser2')
+        testuser3 = self.obol.user_show('testuser3')
+        testgroup1 = self.obol.group_show('testgroup01')
+        testgroup2 = self.obol.group_show('testgroup02')
+        testgroup3 = self.obol.group_show('testgroup03')
+        
+        assert testgroup1['cn'] == 'testgroup01'
+        assert testgroup2['cn'] == 'testgroup02'
+        assert testgroup3['cn'] == 'testgroup03'
+            
+        assert all([x in testuser1['memberOf'] for x in ['testgroup01']])
+        assert not any([x not in ['testgroup01'] for x in testuser1['memberOf'] ])
+        
+        assert all([x in testuser2['memberOf'] for x in ['testuser2', 'testgroup02', 'testgroup03']])
+        assert not any([x not in ['testuser2', 'testgroup02', 'testgroup03'] for x in testuser2['memberOf'] ])
+        
+        assert all([x in testuser3['memberOf'] for x in ['testgroup01', 'testgroup02', 'testgroup03']])
+        assert not any([x not in ['testgroup01', 'testgroup02', 'testgroup03'] for x in testuser3['memberOf'] ])
+        
+        self.obol.user_delete('testuser1')
+        self.obol.user_delete('testuser2')
+        self.obol.user_delete('testuser3')
+        self.obol.group_delete('testgroup01')
+        self.obol.group_delete('testgroup02')
+        self.obol.group_delete('testgroup03')
+        
         groups = self.obol.group_list()
-        assert isinstance(groups, list)
-        assert all(isinstance(g, dict) for g in groups)
-        assert all('gidNumber' in g for g in groups)
-        assert all('cn' in g for g in groups)
-
-    def test_add(self):
-        """Test add group"""
-        groupname = _random_random_string(10)
-        self.obol.group_add(groupname)
-        group = self.obol.group_show(groupname)
-        assert group['cn'] == groupname
-        self.obol.group_delete(groupname)
-
-    def test_delete(self):
-        """Test delete group"""
-        groupname = _random_random_string(10)
-        self.obol.group_add(groupname)
-        self.obol.group_delete(groupname)
-        groups = self.obol.group_list()
-        assert groupname not in [g['cn'] for g in groups]
-
-
-class TestMixedMethods(unittest.TestCase):
-    """Test mixed methods"""
-    def __init__(self, *args, **kwargs) -> None:
-        self.obol = Obol('/etc/obol.conf')
-        super().__init__(*args, **kwargs)
-
-    def test_add_user_with_group(self):
-        """Test add user with group"""
-        username = _random_random_string(10)
-        groupname = _random_random_string(10)
-        self.obol.group_add(groupname)
-        self.obol.user_add(username, groupname=groupname)
-        user = self.obol.user_show(username)
-        group = self.obol.group_show(groupname)
-        assert user['cn'] == username
-        assert user['gidNumber'] == group['gidNumber']
-        # assert username in group['users']
-        self.obol.user_delete(username)
-        self.obol.group_delete(groupname)
-
-    def test_add_user_with_gid(self):
-        """Test add user with gid"""
-        username = _random_random_string(10)
-        groupname = _random_random_string(10)
-        self.obol.group_add(groupname)
-        _group = self.obol.group_show(groupname)
-        self.obol.user_add(username, gid=_group['gidNumber'])
-        user = self.obol.user_show(username)
-        group = self.obol.group_show(groupname)
-        assert user['cn'] == username
-        assert user['gidNumber'] == group['gidNumber']
-        # assert username in group['users']
-        self.obol.user_delete(username)
-        self.obol.group_delete(groupname)
-
-    def test_add_user_with_groups(self):
-        """Test add user with groups"""
-        username = _random_random_string(10)
-        groupname1 = _random_random_string(10)
-        groupname2 = _random_random_string(10)
-        self.obol.group_add(groupname1)
-        self.obol.group_add(groupname2)
-        self.obol.user_add(username, groups=[groupname1, groupname2])
-        user = self.obol.user_show(username)
-        group1 = self.obol.group_show(groupname1)
-        group2 = self.obol.group_show(groupname2)
-        assert user['cn'] == username
-        assert username in group1['users']
-        assert username in group2['users']
-        self.obol.user_delete(username)
-        self.obol.group_delete(groupname1)
-        self.obol.group_delete(groupname2)
-
-    def test_addusers(self):
-        """Test addusers"""
-        username1 = _random_random_string(10)
-        username2 = _random_random_string(10)
-        groupname = _random_random_string(10)
-        self.obol.group_add(groupname)
-        self.obol.user_add(username1)
-        self.obol.user_add(username2)
-        self.obol.group_addusers(groupname, [username1, username2])
-        group = self.obol.group_show(groupname)
-        assert username1 in group['users']
-        assert username2 in group['users']
-        self.obol.user_delete(username1)
-        self.obol.user_delete(username2)
-        self.obol.group_delete(groupname)
-
-    def test_delusers(self):
-        """Test delusers"""
-        username1 = _random_random_string(10)
-        username2 = _random_random_string(10)
-        groupname = _random_random_string(10)
-        self.obol.group_add(groupname)
-        self.obol.user_add(username1)
-        self.obol.user_add(username2)
-        self.obol.group_addusers(groupname, [username1, username2])
-        self.obol.group_delusers(groupname, [username1, username2])
-        group = self.obol.group_show(groupname)
-        assert username1 not in group['users']
-        assert username2 not in group['users']
-        self.obol.user_delete(username1)
-        self.obol.user_delete(username2)
-        self.obol.group_delete(groupname)
-
-    def test_group_modify_users(self):
-        """Test group modify users"""
-        username1 = _random_random_string(10)
-        username2 = _random_random_string(10)
-        groupname = _random_random_string(10)
-        self.obol.group_add(groupname)
-        self.obol.user_add(username1)
-        self.obol.user_add(username2)
-        self.obol.group_modify(groupname, users=[username1, username2])
-        group = self.obol.group_show(groupname)
-        assert username1 in group['users']
-        assert username2 in group['users']
-        self.obol.user_delete(username1)
-        self.obol.user_delete(username2)
-        self.obol.group_delete(groupname)
-
-    def test_user_modify_groups(self):
-        """Test user modify groups"""
-        username = _random_random_string(10)
-        groupname1 = _random_random_string(10)
-        groupname2 = _random_random_string(10)
-        self.obol.group_add(groupname1)
-        self.obol.group_add(groupname2)
-        self.obol.user_add(username)
-        self.obol.user_modify(username, groups=[groupname1, groupname2])
-        group1 = self.obol.group_show(groupname1)
-        group2 = self.obol.group_show(groupname2)
-        assert username in group1['users']
-        assert username in group2['users']
-        self.obol.user_delete(username)
-        self.obol.group_delete(groupname1)
-        self.obol.group_delete(groupname2)
-
-
-if __name__ == '__main__':
-    unittest.main()
+        assert not any([x in ['testgroup01', 'testgroup02', 'testgroup03'] for x in groups])
+   
+    def test_combined_complex3(self):
+        
+        self.obol.group_add('testgroup1')
+        self.obol.group_add('testgroup2')
+        
+        self.obol.user_add('testuser1', groupname='testgroup1')
+        self.obol.user_add('testuser2', groups=['testgroup1', 'testgroup2'])
+        
+        self.obol.group_modify('testgroup1', users=['testuser2'])
+        self.obol.group_modify('testgroup2', users=[])
+        
+        self.obol.user_delete('testuser1')
+        self.obol.user_delete('testuser2')
+        self.obol.group_delete('testgroup1')
+        self.obol.group_delete('testgroup2')
+        
+# if __name__ == '__main__':
+#     unittest.main()
