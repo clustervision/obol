@@ -779,7 +779,7 @@ class Obol:
                     f"Users '{', '.join(incorrect_usernames)}' do not exist"
                 )
 
-            existing_group_usernames = existing_group["member"]
+            existing_group_usernames = existing_group.get("member", [])
             existing_primary_group_usernames = [
                 u["uid"]
                 for u in existing_users
@@ -788,7 +788,7 @@ class Obol:
             users_to_add = [u for u in users if u not in existing_group_usernames]
             users_to_del = [
                 u
-                for u in existing_group["member"]
+                for u in existing_group.get("member", [])
                 if (u not in existing_primary_group_usernames)
             ]
 
@@ -1005,7 +1005,7 @@ def run():
     user_addsubcommand.add_argument("--shell")
     user_addsubcommand.add_argument(
         "--groups",
-        type=lambda s: s.split(","),
+        type=lambda s: [i for i in s.split(",") if s ],
         help="A comma separated list of group names",
     )
     user_addsubcommand.add_argument(
@@ -1045,7 +1045,7 @@ def run():
     user_modifysubcommand.add_argument("--phone", metavar="PHONE NUMBER")
     user_modifysubcommand.add_argument(
         "--groups",
-        type=lambda s: s.split(","),
+        type=lambda s: [i for i in s.split(",") if s ],
         help="A comma separated list of group names",
     )
     user_modifysubcommand.add_argument(
@@ -1074,7 +1074,7 @@ def run():
     group_addsubcommand.add_argument("--gid", metavar="GROUP ID")
     group_addsubcommand.add_argument(
         "--users",
-        type=lambda s: s.split(","),
+        type=lambda s: [i for i in s.split(",") if s ],
         help="A comma separated list of usernames",
     )
 
@@ -1084,7 +1084,7 @@ def run():
     group_modifysubcommand.add_argument("--gid", metavar="GROUP ID")
     group_modifysubcommand.add_argument(
         "--users",
-        type=lambda s: s.split(","),
+        type=lambda s: [i for i in s.split(",") if s ],
         help="A comma separated list of usernames",
     )
 
