@@ -977,9 +977,9 @@ def run():
     group_parser = subparsers.add_parser("group", help="Group subcommands")
     user_subcommands = user_parser.add_subparsers(dest="subcommand")
     group_subcommands = group_parser.add_subparsers(dest="subcommand")
-    import_command = subparsers.add_parser("import", help="Import all users and groups")
-    export_command = subparsers.add_parser("export", help="Export all users and groups")
-    erase_command = subparsers.add_parser("erase", help="Erase all users and groups")
+    _ = subparsers.add_parser("import", help="Import all users and groups")
+    _ = subparsers.add_parser("export", help="Export all users and groups")
+    # _ = subparsers.add_parser("erase", help="Erase all users and groups")
 
     # User add command
     user_addsubcommand = user_subcommands.add_parser("add", help="Add a user")
@@ -1165,7 +1165,7 @@ def run():
             exc,
             name=type(exc).__name__,
         )
-        raise exc
+        # raise exc
         sys.exit(1)
 
 
