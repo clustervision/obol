@@ -733,10 +733,10 @@ class Obol:
                 if g["gidNumber"] == existing_user["gidNumber"]
             ][0]
 
-            groups_to_add = [g for g in groups if g not in existing_user["groups"]]
+            groups_to_add = [g for g in groups if g not in existing_user.get("memberOf", [])]
             groups_to_del = [
                 g
-                for g in existing_user["groups"]
+                for g in existing_user.get("memberOf", [])
                 if (g not in groups) and (g != primary_group)
             ]
 
