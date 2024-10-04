@@ -27,17 +27,19 @@ __email__ = "diego.sonaglia@clustervision.com"
 __status__ = "Development"
 
 
+import argparse
+import base64
+import configparser
+import hashlib
+import inspect
+import json
+import logging
 import os
+import secrets
+import shutil
 import sys
 import time
-import json
-import hashlib
-import base64
-import argparse
-import configparser
-import secrets
-import logging
-import inspect
+
 from getpass import getpass
 from typing import List, Dict, Union
 
@@ -410,6 +412,7 @@ class Obol:
         groups=None,
         home=None,
         expire=None,
+        skel=None,
         **kwargs,
     ):
         """Add a user to the LDAP directory"""
@@ -468,6 +471,7 @@ class Obol:
         sn = sn or username
         home = home or f"{self.config.get('users', 'home')}/{username}"
         shell = shell or self.config.get("users", "shell")
+        skel = skel or self.config.get('users', 'skel', fallback='/etc/skel')
 
         if (expire is not None) and (expire != "-1"):
             expire = str(int(expire) + int(time.time() / 86400))
@@ -532,8 +536,10 @@ class Obol:
 
         # Create the user's home directory
         if not os.path.exists(home):
-            os.mkdir(home)
-            os.chown(home, int(uid), int(gid))
+            shutil.copytree(skel, home, symlinks=True)
+            for dirpath, dirnames, filenames, dir_fd in os.fwalk(home, follow_symlinks=False):
+                for n in dirnames + filenames:
+                    os.chown(n, int(uid), int(gid), dir_fd=dir_fd, follow_symlinks=False)
         else:
             home_folder_uid = int(os.stat(home).st_uid)
             if home_folder_uid != int(uid):
@@ -1016,6 +1022,7 @@ def run():
         ),
     )
     user_addsubcommand.add_argument("--home", metavar="HOME")
+    user_addsubcommand.add_argument("--skel", metavar="SKEL_DIR")
 
     # User modify command
     user_modifysubcommand = user_subcommands.add_parser(
